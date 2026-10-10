@@ -47,6 +47,34 @@ public class BubbleService extends Service {
         root.addView(label);
 
         TextView details = new TextView(this);
+        // HILO_BUBBLE_RECEIVER_V1
+        android.content.BroadcastReceiver frameReceiver =
+            new android.content.BroadcastReceiver() {
+                @Override
+                public void onReceive(
+                    android.content.Context context,
+                    android.content.Intent intent) {
+                    int frames = intent.getIntExtra("frames", 0);
+                    details.setText(
+                        "HiLo Analyzer V2\n\n" +
+                        "Screen capture: ACTIVE\n" +
+                        "Frames received: " + frames + "\n\n" +
+                        "Card detection: Not implemented yet");
+                }
+            };
+
+        android.content.IntentFilter filter =
+            new android.content.IntentFilter(
+                "com.hilolive.v2.FRAME_UPDATE");
+
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(
+                frameReceiver, filter,
+                android.content.Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(frameReceiver, filter);
+        }
+
         details.setText(
             "HiLo Analyzer V2\n\n" +
             "Card: Waiting for detection\n" +

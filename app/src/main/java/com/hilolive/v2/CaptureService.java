@@ -125,6 +125,14 @@ public class CaptureService extends Service {
             if (image != null) {
                 try {
                     frameCount++;
+                    // HILO_FRAME_BROADCAST_V1
+                    if (frameCount % 30 == 1) {
+                        Intent update = new Intent(
+                            "com.hilolive.v2.FRAME_UPDATE");
+                        update.setPackage(getPackageName());
+                        update.putExtra("frames", frameCount);
+                        sendBroadcast(update);
+                    }
 
                     
                 // HILO_FRAME_COUNTER_V1
