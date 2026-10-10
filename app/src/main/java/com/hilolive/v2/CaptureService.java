@@ -41,11 +41,13 @@ public class CaptureService extends Service {
     private String pendingCard = "";
     private int pendingCount = 0;
     private String lastCard = "";
+    private TextRecognizer sharedRecognizer;
 
 
     @Override
     public void onCreate() {
         super.onCreate();
+        sharedRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
         NotificationManager nm =
             getSystemService(NotificationManager.class);
@@ -164,75 +166,43 @@ public class CaptureService extends Service {
                             screenBitmap.getHeight());
 
                         
-                // HILO_OCR_CARD_V1
-                // Read only the card-rank area to avoid unrelated page text.
+                // OCR: focus on the upper-left rank; upscale for ML Kit.
                 final Bitmap ocrBitmap = screenBitmap;
                 int cropX = Math.round(ocrBitmap.getWidth() * 0.23f);
                 int cropY = Math.round(ocrBitmap.getHeight() * 0.25f);
-                int cropW = Math.round(ocrBitmap.getWidth() * 0.15f);
-                int cropH = Math.round(ocrBitmap.getHeight() * 0.12f);
-
-                if (cropX + cropW <= ocrBitmap.getWidth()
-                        && cropY + cropH <= ocrBitmap.getHeight()
+                int cropW = Math.round(ocrBitmap.getWidth() * 0.115f);
+                int cropH = Math.round(ocrBitmap.getHeight() * 0.095f);
+                if (cropX >= 0 && cropY >= 0 && cropW > 0 && cropH > 0
+                    && cropX + cropW <= ocrBitmap.getWidth()
+                    && cropY + cropH <= ocrBitmap.getHeight()
                     && ocrBusy.compareAndSet(false, true)) {
-                    Bitmap cardCrop = Bitmap.createBitmap(
-                        ocrBitmap, cropX, cropY, cropW, cropH
-                    );
-                    InputImage input = InputImage.fromBitmap(cardCrop, 0);
-                    TextRecognizer recognizer =
-                        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-
-                    recognizer.process(input)
+                    Bitmap crop = Bitmap.createBitmap(ocrBitmap, cropX, cropY, cropW, cropH);
+                    Bitmap enlarged = Bitmap.createScaledBitmap(crop, cropW * 3, cropH * 3, true);
+                    crop.recycle();
+                    InputImage input = InputImage.fromBitmap(enlarged, 0);
+                    sharedRecognizer.process(input)
                         .addOnSuccessListener(result -> {
-                            String text = result.getText().trim();
-                    Intent rawUpdate = new Intent("com.hilolive.v2.HILO_RAW_UPDATE");
-                    rawUpdate.setPackage(getPackageName());
-                    rawUpdate.putExtra("raw", text);
-                    sendBroadcast(rawUpdate);
-
-                    Log.i(TAG, "HILO RAW OCR: [" + text + "]");
-
-                    // HILO_AUTO_CARD_V1
-                    
-                    String raw = text.toUpperCase(java.util.Locale.US)
-                        .replaceAll("\\s+", "");
-
-                    String card = raw;
-                    if (card.equals("IO") || card.equals("I0") ||
-                        card.equals("1O") || card.equals("1D")) {
-                        card = "10";
-                    }
-
-                    boolean valid = card.matches("A|[2-9]|10|J|Q|K");
-
-                    if (!valid) return;
-
-                    if (card.equals(pendingCard)) {
-                        pendingCount++;
-                    } else {
-                        pendingCard = card;
-                        pendingCount = 1;
-                    }
-
-                    if (pendingCount < 1 || card.equals(lastCard)) {
-                        return;
-                    }
-
-                    lastCard = card;
-                    text = card;
-
-                            Log.i(TAG, "HILO OCR detected: " + text);
-                            Intent update = new Intent("com.hilolive.v2.CARD_UPDATE");
-                            update.setPackage(getPackageName());
-                            update.putExtra("card", text);
-                            sendBroadcast(update);
+                            String raw = result.getText().trim();
+                            broadcastValue("com.hilolive.v2.HILO_RAW_UPDATE", "raw", raw);
+                            String candidate = normalizeCard(raw);
+                            if (candidate == null) {
+                                broadcastValue("com.hilolive.v2.OCR_STATUS", "status", "Uncertain OCR");
+                                pendingCard = ""; pendingCount = 0;
+                                return;
+                            }
+                            // Ambiguous six/nine requires two consecutive identical reads.
+                            int needed = ("6".equals(candidate) || "9".equals(candidate)) ? 2 : 1;
+                            if (candidate.equals(pendingCard)) pendingCount++;
+                            else { pendingCard = candidate; pendingCount = 1; }
+                            if (pendingCount < needed || candidate.equals(lastCard)) return;
+                            lastCard = candidate;
+                            broadcastValue("com.hilolive.v2.CARD_UPDATE", "card", candidate);
+                            broadcastValue("com.hilolive.v2.OCR_STATUS", "status", "Detected");
                         })
-                        .addOnFailureListener(e ->
-                            Log.e(TAG, "OCR failed", e))
+                        .addOnFailureListener(e -> Log.e(TAG, "OCR failed", e))
                         .addOnCompleteListener(task -> {
-                            cardCrop.recycle();
-                            recognizer.close();
-                    ocrBusy.set(false);
+                            enlarged.recycle();
+                            ocrBusy.set(false);
                         });
                 }
                 ocrBitmap.recycle();
@@ -291,8 +261,26 @@ public class CaptureService extends Service {
         Log.i(TAG, "Capture started: " + width + "x" + height);
     }
 
+    private void broadcastValue(String action, String key, String value) {
+        Intent update = new Intent(action);
+        update.setPackage(getPackageName());
+        update.putExtra(key, value);
+        sendBroadcast(update);
+    }
+
+    private String normalizeCard(String raw) {
+        if (raw == null) return null;
+        String value = raw.toUpperCase(java.util.Locale.US)
+            .replaceAll("\\s+", "")
+            .replace("♠", "").replace("♥", "").replace("♦", "").replace("♣", "");
+        if (value.equals("IO") || value.equals("I0") || value.equals("1O")
+            || value.equals("LO")) value = "10";
+        return value.matches("A|[2-9]|10|J|Q|K") ? value : null;
+    }
+
     @Override
     public void onDestroy() {
+        if (sharedRecognizer != null) sharedRecognizer.close();
         if (display != null) display.release();
         if (reader != null) reader.close();
         if (projection != null) projection.stop();
