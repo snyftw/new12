@@ -55,9 +55,23 @@ public class BubbleService extends Service {
                     android.content.Context context,
                     android.content.Intent intent) {
                     if ("com.hilolive.v2.CARD_UPDATE".equals(intent.getAction())) {
-                    String card = intent.getStringExtra("card");
+                    if ("com.hilolive.v2.HILO_RAW_UPDATE".equals(intent.getAction())) {
+                    String raw = intent.getStringExtra("raw");
+                    if (raw != null) {
+                        String current = details.getText().toString();
+                        int index = current.indexOf("\\nRaw OCR:");
+                        if (index >= 0) current = current.substring(0, index);
+                        details.setText(current + "\\nRaw OCR: " + raw);
+                    }
+                    return;
+                }
+                String card = intent.getStringExtra("card");
                     if (card != null && !card.trim().isEmpty()) {
-                        details.setText("HiLo Analyzer V2\nCard OCR: " + card);
+                        String current = details.getText().toString();
+                    String rawLine = "";
+                    int index = current.indexOf("\\nRaw OCR:");
+                    if (index >= 0) rawLine = current.substring(index);
+                    details.setText("HiLo Analyzer V2\\nCard OCR: " + card + rawLine);
                     }
                     return;
                 }
@@ -78,6 +92,7 @@ public class BubbleService extends Service {
             new android.content.IntentFilter(
                 "com.hilolive.v2.FRAME_UPDATE");
         filter.addAction("com.hilolive.v2.CARD_UPDATE");
+        filter.addAction("com.hilolive.v2.HILO_RAW_UPDATE");
 
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             registerReceiver(

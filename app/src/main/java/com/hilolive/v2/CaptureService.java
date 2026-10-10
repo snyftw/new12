@@ -185,6 +185,11 @@ public class CaptureService extends Service {
                     recognizer.process(input)
                         .addOnSuccessListener(result -> {
                             String text = result.getText().trim();
+                    Intent rawUpdate = new Intent("com.hilolive.v2.HILO_RAW_UPDATE");
+                    rawUpdate.setPackage(getPackageName());
+                    rawUpdate.putExtra("raw", text);
+                    sendBroadcast(rawUpdate);
+
                     Log.i(TAG, "HILO RAW OCR: [" + text + "]");
 
                     // HILO_AUTO_CARD_V1
