@@ -61,7 +61,7 @@ public class BubbleService extends Service {
                     }
                     return;
                 }
-                // HILO_KEEP_CARD_VISIBLE_V1
+                // HILO_LATEST_CARD_V1
                 if (details.getText().toString().contains("Card OCR:")) {
                     return;
                 }
