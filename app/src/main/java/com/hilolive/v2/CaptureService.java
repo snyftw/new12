@@ -1,6 +1,11 @@
 package com.hilolive.v2;
 
 import android.app.Service;
+import android.graphics.Bitmap;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+import com.google.mlkit.vision.text.TextRecognizer;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -152,7 +157,42 @@ public class CaptureService extends Service {
                             screenBitmap.getWidth() + "x" +
                             screenBitmap.getHeight());
 
-                        screenBitmap.recycle();
+                        
+                // HILO_OCR_CARD_V1
+                // Read only the card-rank area to avoid unrelated page text.
+                final Bitmap ocrBitmap = screenBitmap;
+                int cropX = Math.round(ocrBitmap.getWidth() * 0.23f);
+                int cropY = Math.round(ocrBitmap.getHeight() * 0.25f);
+                int cropW = Math.round(ocrBitmap.getWidth() * 0.15f);
+                int cropH = Math.round(ocrBitmap.getHeight() * 0.12f);
+
+                if (cropX + cropW <= ocrBitmap.getWidth()
+                        && cropY + cropH <= ocrBitmap.getHeight()) {
+                    Bitmap cardCrop = Bitmap.createBitmap(
+                        ocrBitmap, cropX, cropY, cropW, cropH
+                    );
+                    InputImage input = InputImage.fromBitmap(cardCrop, 0);
+                    TextRecognizer recognizer =
+                        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+
+                    recognizer.process(input)
+                        .addOnSuccessListener(result -> {
+                            String text = result.getText().trim();
+                            Log.i(TAG, "HILO OCR detected: " + text);
+                            Intent update = new Intent("com.hilolive.v2.CARD_UPDATE");
+                            update.setPackage(getPackageName());
+                            update.putExtra("card", text);
+                            sendBroadcast(update);
+                        })
+                        .addOnFailureListener(e ->
+                            Log.e(TAG, "OCR failed", e))
+                        .addOnCompleteListener(task -> {
+                            cardCrop.recycle();
+                            recognizer.close();
+                        });
+                }
+                ocrBitmap.recycle();
+
                     }
 
                     // HILO_FRAME_BROADCAST_V1
