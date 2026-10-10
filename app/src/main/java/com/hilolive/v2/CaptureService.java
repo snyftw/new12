@@ -185,17 +185,20 @@ public class CaptureService extends Service {
                     recognizer.process(input)
                         .addOnSuccessListener(result -> {
                             String text = result.getText().trim();
+                    Log.i(TAG, "HILO RAW OCR: [" + text + "]");
 
                     // HILO_AUTO_CARD_V1
-                    String card = text.toUpperCase(java.util.Locale.US)
-                            .replaceAll("\\s+", "");
+                    
+                    String raw = text.toUpperCase(java.util.Locale.US)
+                        .replaceAll("\\s+", "");
 
-                    if (card.equals("1O")) card = "10";
-                    if (card.equals("I0")) card = "10";
+                    String card = raw;
+                    if (card.equals("IO") || card.equals("I0") ||
+                        card.equals("1O") || card.equals("1D")) {
+                        card = "10";
+                    }
 
-                    boolean valid = card.matches(
-                            "A|[2-9]|10|J|Q|K"
-                    );
+                    boolean valid = card.matches("A|[2-9]|10|J|Q|K");
 
                     if (!valid) return;
 
@@ -206,7 +209,7 @@ public class CaptureService extends Service {
                         pendingCount = 1;
                     }
 
-                    if (pendingCount < 2 || card.equals(lastCard)) {
+                    if (pendingCount < 1 || card.equals(lastCard)) {
                         return;
                     }
 
