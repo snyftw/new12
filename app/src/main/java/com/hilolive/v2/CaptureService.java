@@ -36,6 +36,7 @@ public class CaptureService extends Service {
     private HandlerThread thread;
     private Handler handler;
     private int frameCount = 0;
+    private final java.util.concurrent.atomic.AtomicBoolean ocrBusy = new java.util.concurrent.atomic.AtomicBoolean(false);
     // HILO_AUTO_CARD_V1
     private String pendingCard = "";
     private int pendingCount = 0;
@@ -138,7 +139,7 @@ public class CaptureService extends Service {
                     frameCount++;
 
                     // HILO_BITMAP_CAPTURE_V1
-                    if (frameCount % 30 == 1) {
+                    if (frameCount % 5 == 1) {
                         android.media.Image.Plane plane = image.getPlanes()[0];
                         java.nio.ByteBuffer buffer = plane.getBuffer();
                         int pixelStride = plane.getPixelStride();
@@ -172,7 +173,8 @@ public class CaptureService extends Service {
                 int cropH = Math.round(ocrBitmap.getHeight() * 0.12f);
 
                 if (cropX + cropW <= ocrBitmap.getWidth()
-                        && cropY + cropH <= ocrBitmap.getHeight()) {
+                        && cropY + cropH <= ocrBitmap.getHeight()
+                    && ocrBusy.compareAndSet(false, true)) {
                     Bitmap cardCrop = Bitmap.createBitmap(
                         ocrBitmap, cropX, cropY, cropW, cropH
                     );
@@ -222,6 +224,7 @@ public class CaptureService extends Service {
                         .addOnCompleteListener(task -> {
                             cardCrop.recycle();
                             recognizer.close();
+                    ocrBusy.set(false);
                         });
                 }
                 ocrBitmap.recycle();
