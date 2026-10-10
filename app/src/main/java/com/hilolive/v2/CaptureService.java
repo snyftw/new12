@@ -6,6 +6,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -125,6 +126,35 @@ public class CaptureService extends Service {
             if (image != null) {
                 try {
                     frameCount++;
+
+                    // HILO_BITMAP_CAPTURE_V1
+                    if (frameCount % 30 == 1) {
+                        android.media.Image.Plane plane = image.getPlanes()[0];
+                        java.nio.ByteBuffer buffer = plane.getBuffer();
+                        int pixelStride = plane.getPixelStride();
+                        int rowStride = plane.getRowStride();
+                        int padding = rowStride - pixelStride * image.getWidth();
+
+                        Bitmap bitmap = Bitmap.createBitmap(
+                            image.getWidth() + padding / pixelStride,
+                            image.getHeight(),
+                            Bitmap.Config.ARGB_8888
+                        );
+                        bitmap.copyPixelsFromBuffer(buffer);
+
+                        Bitmap screenBitmap = Bitmap.createBitmap(
+                            bitmap, 0, 0,
+                            image.getWidth(), image.getHeight()
+                        );
+                        bitmap.recycle();
+
+                        Log.i(TAG, "Bitmap ready: " +
+                            screenBitmap.getWidth() + "x" +
+                            screenBitmap.getHeight());
+
+                        screenBitmap.recycle();
+                    }
+
                     // HILO_FRAME_BROADCAST_V1
                     if (frameCount % 30 == 1) {
                         Intent update = new Intent(
