@@ -36,6 +36,11 @@ public class CaptureService extends Service {
     private HandlerThread thread;
     private Handler handler;
     private int frameCount = 0;
+    // HILO_AUTO_CARD_V1
+    private String pendingCard = "";
+    private int pendingCount = 0;
+    private String lastCard = "";
+
 
     @Override
     public void onCreate() {
@@ -178,6 +183,34 @@ public class CaptureService extends Service {
                     recognizer.process(input)
                         .addOnSuccessListener(result -> {
                             String text = result.getText().trim();
+
+                    // HILO_AUTO_CARD_V1
+                    String card = text.toUpperCase(java.util.Locale.US)
+                            .replaceAll("\\s+", "");
+
+                    if (card.equals("1O")) card = "10";
+                    if (card.equals("I0")) card = "10";
+
+                    boolean valid = card.matches(
+                            "A|[2-9]|10|J|Q|K"
+                    );
+
+                    if (!valid) return;
+
+                    if (card.equals(pendingCard)) {
+                        pendingCount++;
+                    } else {
+                        pendingCard = card;
+                        pendingCount = 1;
+                    }
+
+                    if (pendingCount < 2 || card.equals(lastCard)) {
+                        return;
+                    }
+
+                    lastCard = card;
+                    text = card;
+
                             Log.i(TAG, "HILO OCR detected: " + text);
                             Intent update = new Intent("com.hilolive.v2.CARD_UPDATE");
                             update.setPackage(getPackageName());
