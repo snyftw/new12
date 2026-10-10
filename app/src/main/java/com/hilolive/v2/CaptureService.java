@@ -126,7 +126,23 @@ public class CaptureService extends Service {
                 try {
                     frameCount++;
 
-                    if (frameCount % 30 == 1) {
+                    
+                // HILO_FRAME_COUNTER_V1
+                if (frameCount % 30 == 1) {
+                    android.app.NotificationManager nm =
+                        (android.app.NotificationManager)
+                        getSystemService(NOTIFICATION_SERVICE);
+                    android.app.Notification n =
+                        new android.app.Notification.Builder(this, "hilo_capture")
+                        .setSmallIcon(android.R.drawable.ic_menu_camera)
+                        .setContentTitle("HiLo Capture Active")
+                        .setContentText("Frames received: " + frameCount)
+                        .setOnlyAlertOnce(true)
+                        .build();
+                    nm.notify(2002, n);
+                }
+
+                if (frameCount % 30 == 1) {
                         Log.i(TAG,
                             "Frame received: " +
                             image.getWidth() + "x" +
