@@ -17,6 +17,17 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
 
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                new String[]{
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                }, 200);
+        }
+
+
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(40, 60, 40, 40);
