@@ -1,6 +1,8 @@
 package com.hilolive.v2;
 
 import android.app.Activity;
+import android.media.projection.MediaProjectionManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -10,6 +12,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
+    private static final int CAPTURE_REQUEST = 100;
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -52,6 +55,39 @@ public class MainActivity extends Activity {
             stopService(new Intent(this, BubbleService.class))
         );
 
+
+        Button capture = new Button(this);
+        capture.setText("START SCREEN CAPTURE");
+        layout.addView(capture);
+
+        capture.setOnClickListener(v -> {
+            MediaProjectionManager manager =
+                (MediaProjectionManager) getSystemService(
+                    Context.MEDIA_PROJECTION_SERVICE
+                );
+            startActivityForResult(
+                manager.createScreenCaptureIntent(),
+                CAPTURE_REQUEST
+            );
+        });
+
         setContentView(layout);
+    }
+
+    @Override
+    protected void onActivityResult(
+        int requestCode, int resultCode, Intent data
+    ) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == CAPTURE_REQUEST
+                && resultCode == RESULT_OK
+                && data != null) {
+
+            Intent service = new Intent(this, CaptureService.class);
+            service.putExtra("resultCode", resultCode);
+            service.putExtra("resultData", data);
+            startForegroundService(service);
+        }
     }
 }
